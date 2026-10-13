@@ -1,0 +1,28 @@
+{
+  "name": "dcbrand-delivery-api",
+  "version": "1.0.0",
+  "description": "DC Brand Delivery API - Gerencia entregas por bairro e integração Correios",
+  "main": "delivery-api.js",
+  "scripts": {
+    "start": "node delivery-api.js",
+    "dev": "nodemon delivery-api.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "keywords": ["ecommerce", "delivery", "correios", "recife"],
+  "author": "João Matheus",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-cache": "^5.1.2",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
+  }
+}
