@@ -1,8 +1,8 @@
 /**
  * DC Brand Delivery API
- * Gerencia entregas, bairros e integração com Correios
+ * Gerencia entregas, bairros e integração com SuperFrete
  * 
- * Stack: Node.js + Express + PostgreSQL
+ * Stack: Node.js + Express + SuperFrete
  */
 
 const express = require('express');
@@ -123,43 +123,94 @@ app.post('/api/v1/deliveries/calculate-motoboy', (req, res) => {
 });
 
 // ============================================================================
-// CORREIOS
+// SUPERFRETE (Nacional)
 // ============================================================================
 
-const CORREIOS_API = {
-  BASE_URL: 'https://api.correios.com.br/api',
-  TRACKING_URL: 'https://www2.correios.com.br/sistemas/rastreamento/'
-};
-
-async function calculateCorreiosFrete(cepDestino, weightKg, totalValue, service = '04014') {
+async function calculateSuperFrete(cepDestino, weightKg, totalValue) {
   try {
-    console.log(`Calculando frete Correios: CEP ${cepDestino}, Peso ${weightKg}kg`);
+    console.log(`Calculando frete SuperFrete: CEP ${cepDestino}, Peso ${weightKg}kg`);
 
-    const mockCorreiosResponse = {
+    // Validar CEP
+    const cepLimpo = cepDestino.replace('-', '');
+    if (!/^\d{8}$/.test(cepLimpo)) {
+      throw new Error('CEP inválido');
+    }
+
+    // Chamar API SuperFrete
+    const response = await axios.post(
+      'https://api.superfrete.com/api/v0/calculate',
+      {
+        recipient: {
+          address: {
+            zip_code: cepLimpo
+          }
+        },
+        shipper: {
+          registered_number: '00000000000000', // CNPJ padrão (sem autenticação completa)
+          address: {
+            zip_code: '50010020' // Recife - CEP de origem
+          }
+        },
+        dispatchers: [
+          {
+            products: [
+              {
+                weight: Math.max(weightKg, 0.5), // Mínimo 0.5kg
+                height: 10,
+                width: 10,
+                length: 10
+              }
+            ]
+          }
+        ]
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.SUPERFRETE_API_KEY || 'test'}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    // Pegar a opção mais barata
+    const services = response.data.dispatchers?.[0]?.services || [];
+    if (services.length === 0) {
+      throw new Error('Nenhuma opção de frete disponível');
+    }
+
+    const cheapest = services.sort((a, b) => a.final_price - b.final_price)[0];
+
+    return {
       cep_destino: cepDestino,
       weight_kg: weightKg,
-      service_code: service,
-      service_name: service === '04014' ? 'PAC' : 'SEDEX',
-      base_price: 25.00 + (weightKg * 10),
-      valor_declarado_adicional: totalValue > 100 ? (totalValue * 0.01) : 0,
-      prazo_entrega: service === '04014' ? '10 dias úteis' : '1-2 dias úteis',
-      total_price: 0
+      service_code: cheapest.service_code,
+      service_name: cheapest.service_name,
+      base_price: cheapest.final_price,
+      prazo_entrega: `${cheapest.delivery_time} dias úteis`,
+      total_price: cheapest.final_price,
+      provider: 'superfrete'
     };
-
-    mockCorreiosResponse.total_price = 
-      mockCorreiosResponse.base_price + 
-      mockCorreiosResponse.valor_declarado_adicional;
-
-    return mockCorreiosResponse;
   } catch (error) {
-    console.error('Erro ao calcular frete Correios:', error);
-    throw error;
+    console.error('Erro SuperFrete:', error.message);
+    
+    // Fallback: retornar estimativa se API falhar
+    const mockPrice = 25.00 + (weightKg * 10);
+    return {
+      cep_destino: cepDestino,
+      weight_kg: weightKg,
+      service_name: 'Sedex (estimado)',
+      base_price: mockPrice,
+      prazo_entrega: '2-3 dias úteis',
+      total_price: mockPrice,
+      provider: 'superfrete (estimado)',
+      warning: 'Usando estimativa. Configure SUPERFRETE_API_KEY para preços reais.'
+    };
   }
 }
 
 app.post('/api/v1/deliveries/calculate-correios', async (req, res) => {
   try {
-    const { cep_destino, weight_kg = 0.5, total_value, service = '04014' } = req.body;
+    const { cep_destino, weight_kg = 0.5, total_value } = req.body;
 
     if (!cep_destino || !total_value) {
       return res.status(400).json({
@@ -175,7 +226,7 @@ app.post('/api/v1/deliveries/calculate-correios', async (req, res) => {
       });
     }
 
-    const cacheKey = `correios_${cep_destino}_${service}`;
+    const cacheKey = `superfrete_${cep_destino}`;
     const cached = cache.get(cacheKey);
     if (cached) {
       return res.json({
@@ -186,7 +237,7 @@ app.post('/api/v1/deliveries/calculate-correios', async (req, res) => {
       });
     }
 
-    const freteData = await calculateCorreiosFrete(cep_destino, weight_kg, total_value, service);
+    const freteData = await calculateSuperFrete(cep_destino, weight_kg, total_value);
     cache.set(cacheKey, freteData);
 
     res.json({
@@ -199,7 +250,8 @@ app.post('/api/v1/deliveries/calculate-correios', async (req, res) => {
     console.error('Erro:', error);
     res.status(500).json({
       success: false,
-      error: 'Erro ao calcular frete. Tente novamente ou use moto boy.'
+      error: 'Erro ao calcular frete. Tente novamente ou use moto boy.',
+      details: error.message
     });
   }
 });
@@ -287,20 +339,21 @@ app.post('/api/v1/deliveries/quote', async (req, res) => {
       if (!cep_destino) {
         return res.status(400).json({
           success: false,
-          error: 'cep_destino é obrigatório para Correios'
+          error: 'cep_destino é obrigatório para SuperFrete'
         });
       }
 
-      const freteData = await calculateCorreiosFrete(cep_destino, weight_kg, total_value);
+      const freteData = await calculateSuperFrete(cep_destino, weight_kg, total_value);
 
       return res.json({
         success: true,
         data: {
-          method: 'correios',
+          method: 'superfrete',
           service: freteData.service_name,
           price: freteData.total_price,
           final_total: total_value + freteData.total_price,
-          estimated_days: freteData.prazo_entrega
+          estimated_days: freteData.prazo_entrega,
+          provider: freteData.provider
         }
       });
 
@@ -364,7 +417,7 @@ app.get('/health', (req, res) => {
     timestamp: new Date(),
     services: {
       neighborhoods: 'ok',
-      correios: 'ready (mock)',
+      superfrete: process.env.SUPERFRETE_API_KEY ? 'connected' : 'ready (fallback mode)',
       cache: 'ok'
     }
   });
@@ -389,6 +442,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚚 DC Brand Delivery API rodando em http://localhost:${PORT}`);
+  console.log(`📍 Provider: SuperFrete (frete) + Moto Boy (Recife)`);
 });
 
 module.exports = app;
