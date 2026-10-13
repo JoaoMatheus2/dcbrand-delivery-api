@@ -1,6 +1,6 @@
 /**
  * DC Brand Delivery API
- * Gerencia entregas, bairros e integração com SuperFrete
+ * Gerencia entregas, bairros e integração com SuperFrete (FORMATO CORRETO)
  * 
  * Stack: Node.js + Express + SuperFrete
  */
@@ -123,7 +123,7 @@ app.post('/api/v1/deliveries/calculate-motoboy', (req, res) => {
 });
 
 // ============================================================================
-// SUPERFRETE (Nacional)
+// SUPERFRETE (Nacional) - FORMATO CORRETO
 // ============================================================================
 
 async function calculateSuperFrete(cepDestino, weightKg, totalValue) {
@@ -136,62 +136,69 @@ async function calculateSuperFrete(cepDestino, weightKg, totalValue) {
       throw new Error('CEP inválido');
     }
 
-    // Chamar API SuperFrete
-    const response = await axios.post(
-      'https://api.superfrete.com/api/v0/calculate',
-      {
-        recipient: {
-          address: {
-            zip_code: cepLimpo
-          }
-        },
-        shipper: {
-          registered_number: '00000000000000', // CNPJ padrão (sem autenticação completa)
-          address: {
-            zip_code: '50010020' // Recife - CEP de origem
-          }
-        },
-        dispatchers: [
-          {
-            products: [
-              {
-                weight: Math.max(weightKg, 0.5), // Mínimo 0.5kg
-                height: 10,
-                width: 10,
-                length: 10
-              }
-            ]
-          }
-        ]
+    // Formato CORRETO da SuperFrete API
+    const payload = {
+      from: {
+        postal_code: '50010020' // CEP de origem (Recife)
       },
+      to: {
+        postal_code: cepLimpo // CEP de destino
+      },
+      services: '1,2,17', // PAC, SEDEX, Mini Envios
+      options: {
+        own_hand: false,
+        receipt: false,
+        insurance_value: 0,
+        use_insurance_value: false
+      },
+      package: {
+        height: 10,
+        width: 10,
+        length: 10,
+        weight: Math.max(weightKg, 0.03) // Mínimo 0.03kg
+      }
+    };
+
+    console.log('Payload SuperFrete:', JSON.stringify(payload, null, 2));
+
+    // Chamar API SuperFrete (ENDPOINT CORRETO)
+    const response = await axios.post(
+      'https://api.superfrete.com/api/v0/calculator',
+      payload,
       {
         headers: {
           'Authorization': `Bearer ${process.env.SUPERFRETE_API_KEY || 'test'}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'User-Agent': 'DC Brand E-commerce API'
         }
       }
     );
 
-    // Pegar a opção mais barata
-    const services = response.data.dispatchers?.[0]?.services || [];
-    if (services.length === 0) {
+    console.log('Resposta SuperFrete:', JSON.stringify(response.data, null, 2));
+
+    // Response é um array de serviços
+    const services = response.data || [];
+    if (!Array.isArray(services) || services.length === 0) {
       throw new Error('Nenhuma opção de frete disponível');
     }
 
-    const cheapest = services.sort((a, b) => a.final_price - b.final_price)[0];
+    // Pegar a opção mais barata
+    const cheapest = services.sort((a, b) => a.price - b.price)[0];
 
     return {
       cep_destino: cepDestino,
       weight_kg: weightKg,
-      service_code: cheapest.service_code,
-      service_name: cheapest.service_name,
-      base_price: cheapest.final_price,
+      service_id: cheapest.id,
+      service_name: cheapest.name,
+      base_price: cheapest.price,
       prazo_entrega: `${cheapest.delivery_time} dias úteis`,
-      total_price: cheapest.final_price,
-      provider: 'superfrete'
+      total_price: cheapest.price,
+      provider: 'superfrete',
+      company: cheapest.company.name
     };
   } catch (error) {
     console.error('Erro SuperFrete:', error.message);
+    console.error('Response:', error.response?.data);
     
     // Fallback: retornar estimativa se API falhar
     const mockPrice = 25.00 + (weightKg * 10);
@@ -350,6 +357,7 @@ app.post('/api/v1/deliveries/quote', async (req, res) => {
         data: {
           method: 'superfrete',
           service: freteData.service_name,
+          company: freteData.company,
           price: freteData.total_price,
           final_total: total_value + freteData.total_price,
           estimated_days: freteData.prazo_entrega,
@@ -443,6 +451,7 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚚 DC Brand Delivery API rodando em http://localhost:${PORT}`);
   console.log(`📍 Provider: SuperFrete (frete) + Moto Boy (Recife)`);
+  console.log(`🔑 API Key configured: ${process.env.SUPERFRETE_API_KEY ? 'YES' : 'NO (using fallback)'}`);
 });
 
 module.exports = app;
