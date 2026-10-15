@@ -390,7 +390,7 @@ app.post('/api/v1/payments/create-preference', async (req, res) => {
   success: 'https://dcbrand-test.lovable.app/checkout/success',    
   failure: 'https://dcbrand-test.lovable.app/checkout/failure',    
   pending: 'https://dcbrand-test.lovable.app/checkout/pending'     
-}
+},
       auto_return: 'approved',
       external_reference: order_id || `order-${Date.now()}`,
       notification_url: 'https://dcbrand-delivery-api-hl25.vercel.app/api/v1/payments/webhook',
