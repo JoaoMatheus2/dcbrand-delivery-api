@@ -382,9 +382,9 @@ app.post('/api/v1/payments/create-preference', async (req, res) => {
         name: customer_name || 'Cliente',
         email: customer_email,
         phone: {
-          area_code: '85',
-          number: customer_phone?.replace(/\D/g, '').slice(-9) || '0000000000'
-        }
+  area_code: '85',
+  number: customer_phone?.replace(/\D/g, '') || '00000000000'
+}
       },
       back_urls: {
   success: 'https://dcbrand-test.lovable.app/checkout/success',    
