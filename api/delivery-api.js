@@ -332,6 +332,63 @@ app.post('/api/v1/deliveries/quote', async (req, res) => {
   }
 });
 
+// ✅ NOVO ENDPOINT - Buscar bairros por CEP
+app.post('/api/v1/deliveries/neighborhoods-by-cep', async (req, res) => {
+  try {
+    const { cep } = req.body;
+    
+    // Remove formatação do CEP (se for 50010-020, fica 50010020)
+    const cepLimpo = cep.replace(/\D/g, '');
+    
+    console.log('Buscando bairros para CEP:', cepLimpo);
+    
+    // 1. Busca dados do CEP no ViaCEP
+    const cepResponse = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+    const cepData = await cepResponse.json();
+    
+    if (cepData.erro) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'CEP não encontrado' 
+      });
+    }
+    
+    // 2. Pega bairro e cidade do ViaCEP
+    const bairroViacep = cepData.bairro || 'Centro'; // Se vir em branco, usa "Centro"
+    const cidade = cepData.localidade;
+    const estado = cepData.uf;
+    
+    // 3. Carrega lista de bairros
+    const NEIGHBORHOODS = require('./delivery-neighborhoods.json');
+    
+    // 4. Filtra quais bairros da sua lista servem esse CEP
+    // Estratégia: procura por nome similar OU assume que todos servem
+    const bairrosDisponiveis = NEIGHBORHOODS.filter(n => n.active === true);
+    
+    // 5. Retorna a resposta
+    res.json({
+      success: true,
+      cep: cepLimpo,
+      cidade: cidade,
+      estado: estado,
+      bairro_viacep: bairroViacep,
+      bairros_disponiveis: bairrosDisponiveis.map(b => ({
+        id: b.id,
+        name: b.name,
+        price: b.price,
+        region: b.region
+      }))
+    });
+    
+  } catch (error) {
+    console.error('Erro ao buscar bairros:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Erro ao buscar bairros' 
+    });
+  }
+});
+
 // ============================================================================
 // 💳 PAYMENTS - MERCADO PAGO
 // ============================================================================
