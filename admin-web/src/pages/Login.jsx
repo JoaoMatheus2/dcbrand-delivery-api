@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import '../styles/Login.css';
+import './Login.css';
 
-export default function Login() {
+export default function Login({ onLogin }) {
   const [email, setEmail] = useState('admin@dcbrand.com');
   const [password, setPassword] = useState('123456');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -24,8 +22,7 @@ export default function Login() {
       const data = await response.json();
 
       if (data.success) {
-        localStorage.setItem('token', data.token);
-        navigate('/dashboard');
+        onLogin(data.token);
       } else {
         setError(data.error || 'Erro ao fazer login');
       }

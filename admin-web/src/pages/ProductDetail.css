@@ -1,0 +1,228 @@
+.product-detail {
+  max-width: 1000px;
+}
+
+.product-detail > .btn-secondary {
+  margin-bottom: 1.5rem;
+}
+
+.product-info {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+  border-top: 4px solid var(--color-primary);
+}
+
+.product-info h1 {
+  margin-bottom: 1.5rem;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.info-grid > div {
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+}
+
+.info-grid label {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  color: var(--color-text-light);
+  margin-bottom: 0.5rem;
+}
+
+.info-grid p {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+.info-grid p.alert {
+  color: var(--color-error);
+}
+
+.variants-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.variants-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.variants-header h2 {
+  margin: 0;
+}
+
+.variant-form {
+  background-color: #f9f9f9;
+  padding: 2rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  border-left: 4px solid var(--color-primary);
+}
+
+.variant-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.variant-form .form-row:last-child {
+  margin-bottom: 0;
+}
+
+.variant-form button {
+  margin-top: 1rem;
+}
+
+.color-picker {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.color-picker label {
+  margin: 0;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.color-picker input[type="color"] {
+  width: 50px;
+  height: 50px;
+  border: 2px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.color-picker code {
+  font-size: 0.9rem;
+}
+
+.variants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.variant-card {
+  background: white;
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.variant-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(255, 45, 111, 0.15);
+  transform: translateY(-2px);
+}
+
+.variant-color {
+  margin-bottom: 1rem;
+}
+
+.color-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  margin: 0 auto;
+  border: 3px solid var(--color-border);
+}
+
+.variant-card h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.variant-sku {
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  margin-bottom: 0.5rem;
+}
+
+.variant-price {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0.5rem 0 1rem 0;
+}
+
+.stock-control {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+}
+
+.stock-control label {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.stock-input {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.stock-input input {
+  width: 60px;
+  padding: 0.5rem;
+  text-align: center;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.stock-input button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.variant-card .btn-sm {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .variants-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .variant-form .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .variants-grid {
+    grid-template-columns: 1fr;
+  }
+}
