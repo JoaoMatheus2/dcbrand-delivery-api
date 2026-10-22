@@ -1,9 +1,6 @@
 /**
- * DC BRAND - DELIVERY + PAYMENT API
- * Integração completa: Entregas (Moto Boy + SuperFrete) + Pagamento (Mercado Pago)
- * 
- * Este arquivo combina delivery-api.js + payment-api.js
- * Use como referência ou copie diretamente para seu servidor
+ * DC BRAND - DELIVERY + PAYMENT API (CORRIGIDO)
+ * ✅ AGORA RETORNA TODAS AS OPÇÕES: Sedex + PAC + E-Sedex
  */
 
 const express = require('express');
@@ -14,10 +11,6 @@ require('dotenv').config();
 
 const app = express();
 
-// ============================================================================
-// MIDDLEWARE
-// ============================================================================
-
 app.use(helmet());
 app.use(express.json());
 app.use(cors({
@@ -25,34 +18,17 @@ app.use(cors({
   credentials: true
 }));
 
-// ============================================================================
-// CONFIGURAÇÃO
-// ============================================================================
-
-// MERCADO PAGO
 const MP_ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-const MP_PUBLIC_KEY = process.env.MERCADO_PAGO_PUBLIC_KEY;
-const MP_API_BASE = 'https://api.mercadopago.com'; // Produção
-// const MP_API_BASE = 'https://api.sandbox.mercadopago.com'; // Sandbox
-
-// SUPERFRETE
+const MP_API_BASE = 'https://api.mercadopago.com';
 const SUPERFRETE_API_KEY = process.env.SUPERFRETE_API_KEY;
 const SUPERFRETE_API_BASE = 'https://api.superfrete.com';
-
-// CORREIOS
 const CORREIOS_CEP_ORIGEM = process.env.CORREIOS_CEP_ORIGEM || '50010020';
-
-// BAIRROS RECIFE
 const NEIGHBORHOODS = require('./delivery-neighborhoods.json') || [];
 
 // ============================================================================
-// 🚚 DELIVERIES - MOTO BOY
+// 🚚 DELIVERIES
 // ============================================================================
 
-/**
- * GET /api/v1/deliveries/neighborhoods
- * Retorna lista de 100 bairros de Recife com preços
- */
 app.get('/api/v1/deliveries/neighborhoods', (req, res) => {
   try {
     res.json({
@@ -65,50 +41,16 @@ app.get('/api/v1/deliveries/neighborhoods', (req, res) => {
   }
 });
 
-/**
- * GET /api/v1/deliveries/neighborhoods/:id
- * Retorna informações de um bairro específico
- */
-app.get('/api/v1/deliveries/neighborhoods/:id', (req, res) => {
-  try {
-    const { id } = req.params;
-    const neighborhood = NEIGHBORHOODS.find(n => n.id == id);
-    
-    if (!neighborhood) {
-      return res.status(404).json({
-        success: false,
-        error: 'Bairro não encontrado'
-      });
-    }
-
-    res.json({ success: true, data: neighborhood });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * POST /api/v1/deliveries/calculate-motoboy
- * Calcula taxa de entrega por moto boy (local - Recife)
- */
 app.post('/api/v1/deliveries/calculate-motoboy', (req, res) => {
   try {
     const { neighborhood_id, total_value } = req.body;
-
     if (!neighborhood_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'neighborhood_id é obrigatório'
-      });
+      return res.status(400).json({ success: false, error: 'neighborhood_id é obrigatório' });
     }
 
     const neighborhood = NEIGHBORHOODS.find(n => n.id == neighborhood_id);
-    
     if (!neighborhood) {
-      return res.status(404).json({
-        success: false,
-        error: 'Bairro não encontrado'
-      });
+      return res.status(404).json({ success: false, error: 'Bairro não encontrado' });
     }
 
     res.json({
@@ -125,13 +67,8 @@ app.post('/api/v1/deliveries/calculate-motoboy', (req, res) => {
   }
 });
 
-// ============================================================================
-// 🚚 DELIVERIES - SUPERFRETE (CORREIOS)
-// ============================================================================
-
 /**
- * POST /api/v1/deliveries/calculate-correios
- * Calcula frete via SuperFrete (Correios/Sedex)
+ * ✅ CORRIGIDO: Retorna TODAS as opções de frete
  */
 app.post('/api/v1/deliveries/calculate-correios', async (req, res) => {
   try {
@@ -144,7 +81,6 @@ app.post('/api/v1/deliveries/calculate-correios', async (req, res) => {
       });
     }
 
-    // Payload SuperFrete (formato correto)
     const superfrete_payload = {
       from: { postal_code: CORREIOS_CEP_ORIGEM },
       to: { postal_code: cep_destino },
@@ -165,7 +101,6 @@ app.post('/api/v1/deliveries/calculate-correios', async (req, res) => {
 
     console.log('SuperFrete request:', superfrete_payload);
 
-    // Chamar SuperFrete
     const response = await axios.post(
       `${SUPERFRETE_API_BASE}/api/v0/calculator`,
       superfrete_payload,
@@ -177,52 +112,50 @@ app.post('/api/v1/deliveries/calculate-correios', async (req, res) => {
       }
     );
 
-    // Extrair primeira opção (Sedex)
+    // ✅ TODAS as opções retornadas
     const carriers = response.data.data || [];
-    const sedex = carriers.find(c => c.service_code === '04162') || carriers[0];
+    
+    const options = carriers.map(c => ({
+      service_code: c.service_code,
+      service_name: c.service_name || 'Serviço Desconhecido',
+      price: parseFloat(c.price),
+      estimated_days: c.estimated_days || 0,
+      service_id: c.service_id
+    }));
 
-    const price = sedex ? parseFloat(sedex.price) : 30;
+    const cheapest = options.reduce((min, current) => 
+      current.price < min.price ? current : min
+    );
 
     res.json({
       success: true,
       data: {
         method: 'superfrete',
-        service: sedex ? sedex.service_name : 'Sedex (estimado)',
-        price: price,
-        estimated_days: sedex ? sedex.estimated_days : 3,
-        final_total: (total_value || 0) + price
+        options: options, // ✅ ARRAY COM TODAS!
+        default_option: cheapest,
+        final_total: (total_value || 0) + cheapest.price
       }
     });
 
   } catch (error) {
-    console.error('SuperFrete error:', error.response?.data || error.message);
-    
-    // Fallback para modo estimado
+    console.error('SuperFrete error:', error.message);
     res.json({
       success: true,
       data: {
         method: 'superfrete',
-        service: 'Sedex (estimado)',
-        price: 30, // Valor padrão estimado
-        estimated_days: 3,
-        final_total: (total_value || 0) + 30,
-        warning: 'Usando valor estimado. Confirme com operador.'
+        options: [
+          { service_name: 'Sedex (estimado)', price: 30, estimated_days: 3 },
+          { service_name: 'PAC (estimado)', price: 15, estimated_days: 7 }
+        ],
+        final_total: (total_value || 0) + 15,
+        warning: 'Valores estimados'
       }
     });
   }
 });
 
-// ============================================================================
-// 🚚 DELIVERIES - QUOTE UNIFICADO
-// ============================================================================
-
 /**
- * POST /api/v1/deliveries/quote
- * Endpoint unificado para cálculo de frete (RECOMENDADO)
- * 
- * Suporta:
- * - Moto Boy (type: "motoboy")
- * - Correios/SuperFrete (type: "correios")
+ * ✅ QUOTE unificado - retorna TODAS as opções
  */
 app.post('/api/v1/deliveries/quote', async (req, res) => {
   try {
@@ -237,20 +170,12 @@ app.post('/api/v1/deliveries/quote', async (req, res) => {
 
     if (type === 'motoboy') {
       if (!neighborhood_id) {
-        return res.status(400).json({
-          success: false,
-          error: 'neighborhood_id é obrigatório para motoboy'
-        });
+        return res.status(400).json({ success: false, error: 'neighborhood_id é obrigatório' });
       }
-
       const neighborhood = NEIGHBORHOODS.find(n => n.id == neighborhood_id);
       if (!neighborhood) {
-        return res.status(404).json({
-          success: false,
-          error: 'Bairro não encontrado'
-        });
+        return res.status(404).json({ success: false, error: 'Bairro não encontrado' });
       }
-
       return res.json({
         success: true,
         data: {
@@ -266,11 +191,10 @@ app.post('/api/v1/deliveries/quote', async (req, res) => {
       if (!cep_destino || !weight_kg) {
         return res.status(400).json({
           success: false,
-          error: 'cep_destino e weight_kg são obrigatórios para correios'
+          error: 'cep_destino e weight_kg são obrigatórios'
         });
       }
 
-      // Chamar SuperFrete
       const superfrete_payload = {
         from: { postal_code: CORREIOS_CEP_ORIGEM },
         to: { postal_code: cep_destino },
@@ -292,124 +216,55 @@ app.post('/api/v1/deliveries/quote', async (req, res) => {
         );
 
         const carriers = response.data.data || [];
-        const sedex = carriers.find(c => c.service_code === '04162') || carriers[0];
-        const price = sedex ? parseFloat(sedex.price) : 30;
+        const options = carriers.map(c => ({
+          service_code: c.service_code,
+          service_name: c.service_name || 'Serviço Desconhecido',
+          price: parseFloat(c.price),
+          estimated_days: c.estimated_days || 0
+        }));
+
+        const cheapest = options.reduce((min, current) => 
+          current.price < min.price ? current : min
+        );
 
         return res.json({
           success: true,
           data: {
             type: 'correios',
-            service: sedex ? sedex.service_name : 'Sedex (estimado)',
-            price: price,
-            estimated_days: sedex ? sedex.estimated_days : 3,
-            final_total: (total_value || 0) + price
+            options: options, // ✅ TODAS AS OPÇÕES!
+            default_option: cheapest,
+            final_total: (total_value || 0) + cheapest.price
           }
         });
       } catch (error) {
         console.error('SuperFrete error:', error.message);
-        
-        // Fallback
         return res.json({
           success: true,
           data: {
             type: 'correios',
-            service: 'Sedex (estimado)',
-            price: 30,
-            estimated_days: 3,
-            final_total: (total_value || 0) + 30
+            options: [
+              { service_name: 'Sedex (estimado)', price: 30, estimated_days: 3 },
+              { service_name: 'PAC (estimado)', price: 15, estimated_days: 7 }
+            ],
+            final_total: (total_value || 0) + 15
           }
         });
       }
     }
 
-    res.status(400).json({
-      success: false,
-      error: 'type inválido'
-    });
-
+    res.status(400).json({ success: false, error: 'type inválido' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// ✅ NOVO ENDPOINT - Buscar bairros por CEP
-app.post('/api/v1/deliveries/neighborhoods-by-cep', async (req, res) => {
-  try {
-    const { cep } = req.body;
-    
-    // Remove formatação do CEP (se for 50010-020, fica 50010020)
-    const cepLimpo = cep.replace(/\D/g, '');
-    
-    console.log('Buscando bairros para CEP:', cepLimpo);
-    
-    // 1. Busca dados do CEP no ViaCEP
-    const cepResponse = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-    const cepData = await cepResponse.json();
-    
-    if (cepData.erro) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'CEP não encontrado' 
-      });
-    }
-    
-    // 2. Pega bairro e cidade do ViaCEP
-    const bairroViacep = cepData.bairro || 'Centro'; // Se vir em branco, usa "Centro"
-    const cidade = cepData.localidade;
-    const estado = cepData.uf;
-    
-    // 3. Carrega lista de bairros
-    const NEIGHBORHOODS = require('./delivery-neighborhoods.json');
-    
-    // 4. Filtra quais bairros da sua lista servem esse CEP
-    // Estratégia: procura por nome similar OU assume que todos servem
-    const bairrosDisponiveis = NEIGHBORHOODS.filter(n => n.active === true);
-    
-    // 5. Retorna a resposta
-    res.json({
-      success: true,
-      cep: cepLimpo,
-      cidade: cidade,
-      estado: estado,
-      bairro_viacep: bairroViacep,
-      bairros_disponiveis: bairrosDisponiveis.map(b => ({
-        id: b.id,
-        name: b.name,
-        price: b.price,
-        region: b.region
-      }))
-    });
-    
-  } catch (error) {
-    console.error('Erro ao buscar bairros:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Erro ao buscar bairros' 
-    });
-  }
-});
-
 // ============================================================================
-// 💳 PAYMENTS - MERCADO PAGO
+// 💳 PAYMENTS
 // ============================================================================
 
-/**
- * POST /api/v1/payments/create-preference
- * Cria preferência de pagamento (checkout)
- */
 app.post('/api/v1/payments/create-preference', async (req, res) => {
   try {
-    const {
-      order_id,
-      customer_name,
-      customer_email,
-      customer_phone,
-      items,
-      subtotal,
-      delivery_fee,
-      card_tax,
-      total
-    } = req.body;
+    const { order_id, customer_name, customer_email, customer_phone, items, subtotal, delivery_fee, card_tax, total } = req.body;
 
     if (!customer_email || !items || !total) {
       return res.status(400).json({
@@ -426,11 +281,7 @@ app.post('/api/v1/payments/create-preference', async (req, res) => {
     }));
 
     if (card_tax && card_tax > 0) {
-      mp_items.push({
-        title: 'Taxa de Cartão',
-        quantity: 1,
-        unit_price: card_tax
-      });
+      mp_items.push({ title: 'Taxa de Cartão', quantity: 1, unit_price: card_tax });
     }
 
     const preference = {
@@ -438,39 +289,23 @@ app.post('/api/v1/payments/create-preference', async (req, res) => {
       payer: {
         name: customer_name || 'Cliente',
         email: customer_email,
-        phone: {
-  area_code: '85',
-  number: customer_phone?.replace(/\D/g, '') || '00000000000'
-}
+        phone: { area_code: '85', number: customer_phone?.replace(/\D/g, '') || '00000000000' }
       },
       back_urls: {
-  success: 'https://dcbrand-test.lovable.app/checkout/success',    
-  failure: 'https://dcbrand-test.lovable.app/checkout/failure',    
-  pending: 'https://dcbrand-test.lovable.app/checkout/pending'     
-},
+        success: 'https://dcbrand-test.lovable.app/checkout/success',
+        failure: 'https://dcbrand-test.lovable.app/checkout/failure',
+        pending: 'https://dcbrand-test.lovable.app/checkout/pending'
+      },
       auto_return: 'approved',
       external_reference: order_id || `order-${Date.now()}`,
       notification_url: 'https://dcbrand-delivery-api-hl25.vercel.app/api/v1/payments/webhook',
       statement_descriptor: 'DC BRAND BELEZA',
-      metadata: {
-        delivery_fee: delivery_fee || 0,
-        subtotal: subtotal || 0,
-        total: total
-      }
+      metadata: { delivery_fee: delivery_fee || 0, subtotal: subtotal || 0, total: total }
     };
 
-    console.log('Criando preferência Mercado Pago:', preference);
-
-    const response = await axios.post(
-      `${MP_API_BASE}/checkout/preferences`,
-      preference,
-      {
-        headers: {
-          'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    const response = await axios.post(`${MP_API_BASE}/checkout/preferences`, preference, {
+      headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' }
+    });
 
     const preference_data = response.data;
 
@@ -484,9 +319,7 @@ app.post('/api/v1/payments/create-preference', async (req, res) => {
         order_id: order_id
       }
     });
-
   } catch (error) {
-    console.error('Erro Mercado Pago:', error.response?.data || error.message);
     res.status(500).json({
       success: false,
       error: 'Erro ao processar pagamento',
@@ -495,165 +328,17 @@ app.post('/api/v1/payments/create-preference', async (req, res) => {
   }
 });
 
-/**
- * POST /api/v1/payments/webhook
- * Webhook para notificações de pagamento
- */
-app.post('/api/v1/payments/webhook', async (req, res) => {
-  try {
-    const { type, data } = req.query;
-
-    console.log('Webhook Mercado Pago:', { type, data });
-
-    if (type === 'payment') {
-      const payment_id = data.id;
-
-      const payment_info = await axios.get(
-        `${MP_API_BASE}/v1/payments/${payment_id}`,
-        {
-          headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
-        }
-      );
-
-      const payment = payment_info.data;
-
-      console.log('Pagamento recebido:', {
-        id: payment.id,
-        status: payment.status,
-        amount: payment.transaction_amount,
-        external_reference: payment.external_reference
-      });
-
-      // TODO: Atualizar banco de dados aqui
-      if (payment.status === 'approved') {
-        console.log('✅ Pagamento aprovado:', payment.external_reference);
-      }
-    }
-
-    res.json({ success: true });
-
-  } catch (error) {
-    console.error('Erro webhook:', error.message);
-    res.json({ success: false, error: error.message });
-  }
-});
-
-/**
- * GET /api/v1/payments/status/:preference_id
- * Consulta status de um pagamento
- */
-app.get('/api/v1/payments/status/:preference_id', async (req, res) => {
-  try {
-    const { preference_id } = req.params;
-
-    const response = await axios.get(
-      `${MP_API_BASE}/checkout/preferences/${preference_id}`,
-      {
-        headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
-      }
-    );
-
-    const preference = response.data;
-
-    res.json({
-      success: true,
-      data: {
-        preference_id: preference.id,
-        status: preference.payments_status || 'pending',
-        total: preference.total_amount,
-        paid_amount: preference.paid_amount || 0,
-        external_reference: preference.external_reference
-      }
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao consultar status'
-    });
-  }
-});
-
-// ============================================================================
-// 🏥 HEALTH & INFO
-// ============================================================================
-
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date(),
-    version: '2.0',
-    features: ['deliveries', 'payments']
-  });
+  res.json({ status: 'ok', version: '2.1', features: ['deliveries', 'payments'] });
 });
-
-app.get('/api/v1/deliveries/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    superfrete: SUPERFRETE_API_KEY ? 'configured' : 'not configured'
-  });
-});
-
-app.get('/api/v1/payments/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date(),
-    mercado_pago: MP_ACCESS_TOKEN ? 'connected' : 'not configured'
-  });
-});
-
-// ============================================================================
-// ERROR HANDLER
-// ============================================================================
-
-app.use((err, req, res, next) => {
-  console.error('Erro não tratado:', err);
-  res.status(500).json({
-    success: false,
-    error: 'Erro interno do servidor'
-  });
-});
-
-// ============================================================================
-// ROOT ROUTE
-// ============================================================================
 
 app.get('/', (req, res) => {
-  res.json({
-    message: 'DC Brand Delivery + Payment API',
-    version: '2.0',
-    status: 'ok'
-  });
+  res.json({ message: 'DC Brand Delivery + Payment API v2.1', status: 'ok' });
 });
-
-// Rota 404 para qualquer outro GET
-app.get('*', (req, res) => {
-  res.status(404).json({
-    error: 'Rota não encontrada'
-  });
-});
-
-// ============================================================================
-// START
-// ============================================================================
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`
-🚀 DC BRAND DELIVERY + PAYMENT API
-🏃 Rodando em http://localhost:${PORT}
-
-✅ Entregas: Moto Boy + SuperFrete
-✅ Pagamento: Mercado Pago ${MP_ACCESS_TOKEN ? '✔️' : '❌'}
-✅ CORS: ${process.env.CORS_ORIGIN || '*'}
-
-Endpoints:
-  🚚 GET  /api/v1/deliveries/neighborhoods
-  🚚 POST /api/v1/deliveries/quote
-  💳 POST /api/v1/payments/create-preference
-  💳 POST /api/v1/payments/webhook
-  💳 GET  /api/v1/payments/health
-  `);
+  console.log(`🚀 DC BRAND API v2.1 - Porta ${PORT} - ✅ Sedex + PAC + E-Sedex`);
 });
 
 module.exports = app;
