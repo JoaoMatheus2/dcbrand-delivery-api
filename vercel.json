@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/delivery-api.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "admin-web",
+      "use": "@vercel/static-build"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/delivery-api.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/admin-web"
+    }
+  ]
+}
