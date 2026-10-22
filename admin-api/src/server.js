@@ -44,29 +44,6 @@ app.get('/', (req, res) => {
 });
 
 // ============================================
-// 404 HANDLER
-// ============================================
-
-app.get('*', (req, res) => {
-  res.status(404).json({ 
-    error: 'Rota não encontrada',
-    path: req.path 
-  });
-});
-
-// ============================================
-// ERROR HANDLER
-// ============================================
-
-app.use((err, req, res, next) => {
-  console.error('Erro não capturado:', err);
-  res.status(500).json({
-    error: 'Erro interno do servidor',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Erro'
-  });
-});
-
-// ============================================
 // PRODUTOS PÚBLICOS (sem auth - pra Lovable)
 // ============================================
 
@@ -90,6 +67,31 @@ app.get('/api/products', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ============================================
+// 404 HANDLER
+// ============================================
+
+app.get('*', (req, res) => {
+  res.status(404).json({ 
+    error: 'Rota não encontrada',
+    path: req.path 
+  });
+});
+
+// ============================================
+// ERROR HANDLER
+// ============================================
+
+app.use((err, req, res, next) => {
+  console.error('Erro não capturado:', err);
+  res.status(500).json({
+    error: 'Erro interno do servidor',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Erro'
+  });
+});
+
+
 
 // ============================================
 // START SERVER
