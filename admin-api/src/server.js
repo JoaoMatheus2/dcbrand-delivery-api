@@ -67,6 +67,31 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================
+// PRODUTOS PÚBLICOS (sem auth - pra Lovable)
+// ============================================
+
+app.get('/api/products', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const page = req.query.page || 1;
+    const limit = req.query.limit || 100;
+    
+    const products = await Product.find({ active: true })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+    
+    res.json({
+      success: true,
+      total: products.length,
+      page,
+      products
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
 // START SERVER
 // ============================================
 
