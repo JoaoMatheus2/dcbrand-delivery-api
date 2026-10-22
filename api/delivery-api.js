@@ -328,6 +328,53 @@ app.post('/api/v1/payments/create-preference', async (req, res) => {
   }
 });
 
+// ✅ Buscar bairros por CEP
+app.post('/api/v1/deliveries/neighborhoods-by-cep', async (req, res) => {
+  try {
+    const { cep } = req.body;
+    const cepLimpo = cep.replace(/\D/g, '');
+
+    console.log('Buscando bairros para CEP:', cepLimpo);
+
+    const cepResponse = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+    const cepData = await cepResponse.json();
+
+    if (cepData.erro) {
+      return res.status(400).json({
+        success: false,
+        error: 'CEP não encontrado'
+      });
+    }
+
+    const bairroViacep = cepData.bairro || 'Centro';
+    const cidade = cepData.localidade;
+    const estado = cepData.uf;
+
+    const bairrosDisponiveis = NEIGHBORHOODS.filter(n => n.active !== false);
+
+    res.json({
+      success: true,
+      cep: cepLimpo,
+      cidade: cidade,
+      estado: estado,
+      bairro_viacep: bairroViacep,
+      bairros_disponiveis: bairrosDisponiveis.map(b => ({
+        id: b.id,
+        name: b.name,
+        price: b.price,
+        region: b.region
+      }))
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar bairros:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar bairros'
+    });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', version: '2.1', features: ['deliveries', 'payments'] });
 });
