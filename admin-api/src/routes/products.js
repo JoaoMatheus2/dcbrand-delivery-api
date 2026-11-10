@@ -3,6 +3,9 @@ const router = express.Router();
 const authenticate = require('../middleware/authenticate');
 const productController = require('../controllers/productController');
 
+// ✅ UPLOAD (precisa estar primeiro!)
+router.post('/upload-image', authenticate, productController.uploadImage);
+
 // Produtos
 router.get('/', authenticate, productController.listProducts);
 router.post('/', authenticate, productController.createProduct);
@@ -15,11 +18,9 @@ router.post('/:id/variants', authenticate, productController.addVariant);
 router.put('/:id/variants/:variantId', authenticate, productController.updateVariant);
 router.delete('/:id/variants/:variantId', authenticate, productController.deleteVariant);
 router.put('/:id/variants/:variantId/stock', authenticate, productController.updateVariantStock);
-
-// ✅ NOVOS ENDPOINTS
-// ✅ NOVOS ENDPOINTS
 router.put('/:id/variants/:variantId/price', authenticate, productController.updateVariantPrice);
-router.post('/upload-image', authenticate, productController.uploadImage);
-router.put('/:id/images', authMiddleware, productController.addProductImage);
+
+// ✅ IMAGENS
+router.put('/:id/images', authenticate, productController.addProductImage);
 
 module.exports = router;
