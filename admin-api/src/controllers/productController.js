@@ -141,7 +141,25 @@ exports.updateProduct = async (req, res) => {
     if (price) product.price = price;
     if (discount !== undefined) product.discount = discount;
     if (category) product.category = category;
-    if (images) product.images = images;
+    
+    // ✅ Validar images - deve ser array de objetos
+    if (images !== undefined) {
+      if (Array.isArray(images)) {
+        // Validar que cada item tem url
+        const validImages = images.map(img => ({
+          url: img.url || img,
+          alt: img.alt || product.name,
+          isMain: img.isMain || false
+        }));
+        product.images = validImages;
+      } else if (typeof images === 'string') {
+        // Se vier string, retornar erro
+        return res.status(400).json({ 
+          error: 'Campo images deve ser um array de objetos com estrutura: [{url, alt, isMain}]' 
+        });
+      }
+    }
+    
     if (promotion) product.promotion = promotion;
     
     product.updatedAt = new Date();
@@ -354,7 +372,7 @@ exports.updateVariantPrice = async (req, res) => {
 // ==========================================
 exports.uploadImage = async (req, res) => {
   try {
-    const { base64, filename } = req.body;
+    const { base64, filename, productId, alt } = req.body;
     
     if (!base64 || !filename) {
       return res.status(400).json({ error: 'base64 e filename são obrigatórios' });
@@ -372,13 +390,82 @@ exports.uploadImage = async (req, res) => {
       token: process.env.BLOB_READ_WRITE_TOKEN
     });
     
+    // Se tem productId, adiciona a imagem ao produto
+    if (productId) {
+      const product = await Product.findById(productId);
+      
+      if (!product) {
+        return res.status(404).json({ error: 'Produto não encontrado' });
+      }
+      
+      // Cria objeto de imagem com estrutura correta
+      const imageObject = {
+        url: blob.url,
+        alt: alt || product.name,
+        isMain: product.images.length === 0 // Primeira imagem é principal
+      };
+      
+      // Adiciona ao array
+      product.images.push(imageObject);
+      await product.save();
+      
+      return res.json({
+        success: true,
+        image: imageObject,
+        product_id: productId,
+        message: 'Imagem enviada e adicionada ao produto'
+      });
+    }
+    
+    // Se não tem productId, só retorna a imagem
     res.json({
       success: true,
-      url: blob.url,
+      image: {
+        url: blob.url,
+        alt: alt || filename,
+        isMain: true
+      },
       filename: blob.filename
     });
   } catch (error) {
     console.error('Upload error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ==========================================
+// ✅ PUT - Adicionar Imagem a um Produto (NOVO ENDPOINT)
+// ==========================================
+exports.addProductImage = async (req, res) => {
+  try {
+    const { imageUrl, alt, isMain } = req.body;
+    const productId = req.params.id;
+    
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'imageUrl é obrigatório' });
+    }
+    
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Produto não encontrado' });
+    }
+    
+    const imageObject = {
+      url: imageUrl,
+      alt: alt || product.name,
+      isMain: isMain !== undefined ? isMain : product.images.length === 0
+    };
+    
+    product.images.push(imageObject);
+    await product.save();
+    
+    res.json({
+      success: true,
+      image: imageObject,
+      product
+    });
+  } catch (error) {
+    console.error('Erro ao adicionar imagem:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };

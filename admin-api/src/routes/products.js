@@ -20,5 +20,6 @@ router.put('/:id/variants/:variantId/stock', authenticate, productController.upd
 // ✅ NOVOS ENDPOINTS
 router.put('/:id/variants/:variantId/price', authenticate, productController.updateVariantPrice);
 router.post('/upload-image', authenticate, productController.uploadImage);
+router.put('/:id/images', authMiddleware, productController.addProductImage);
 
 module.exports = router;
