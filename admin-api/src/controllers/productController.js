@@ -1,34 +1,44 @@
 const Product = require('../models/Product');
 
-// GET - Listar produtos
+// ==========================================
+// GET - Listar Todos os Produtos
+// ==========================================
 exports.listProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, category } = req.query;
+    const { page = 1, limit = 10, search, category, hasPromotion, isOutOfStock } = req.query;
     
-    let filter = { active: true };
+    let filter = {};
     
     // Filtro por categoria
     if (category) {
-      filter.category_id = category;
+      filter.category = category;
     }
     
-    // Filtro por busca
+    // Filtro por busca (nome, sku)
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: 'i' } },
-        { sku: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
+        { sku: { $regex: search, $options: 'i' } }
       ];
+    }
+    
+    // Filtro por promoção ativa
+    if (hasPromotion === 'true') {
+      filter['promotion.isActive'] = true;
+    }
+    
+    // Filtro por fora de estoque
+    if (isOutOfStock === 'true') {
+      filter['variants.stock'] = { $lte: 0 };
     }
     
     const skip = (page - 1) * limit;
     
     const products = await Product
       .find(filter)
-      .populate('category_id')
       .skip(skip)
       .limit(parseInt(limit))
-      .sort({ created_at: -1 });
+      .sort({ createdAt: -1 });
     
     const total = await Product.countDocuments(filter);
     
@@ -48,15 +58,17 @@ exports.listProducts = async (req, res) => {
   }
 };
 
-// POST - Criar produto
+// ==========================================
+// POST - Criar Produto
+// ==========================================
 exports.createProduct = async (req, res) => {
   try {
-    const { sku, name, base_price, cost_price, description, brand, tags } = req.body;
+    const { sku, name, category, description, price, discount, images, variants, promotion } = req.body;
     
     // Validações
-    if (!sku || !name || !base_price || !cost_price) {
+    if (!sku || !name || price === undefined) {
       return res.status(400).json({ 
-        error: 'SKU, nome, preço base e custo são obrigatórios' 
+        error: 'SKU, nome e preço são obrigatórios' 
       });
     }
     
@@ -69,13 +81,13 @@ exports.createProduct = async (req, res) => {
     const product = new Product({
       sku,
       name,
-      base_price,
-      cost_price,
+      category: category || '',
       description: description || '',
-      brand: brand || 'DC Brand',
-      tags: tags || [],
-      variants: [],
-      created_by: req.user?.email || 'admin'
+      price,
+      discount: discount || 0,
+      images: images || [],
+      variants: variants || [],
+      promotion: promotion || { isActive: false }
     });
     
     await product.save();
@@ -92,10 +104,12 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// GET - Detalhe do produto
+// ==========================================
+// GET - Detalhe do Produto
+// ==========================================
 exports.getProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).populate('category_id');
+    const product = await Product.findById(req.params.id);
     
     if (!product) {
       return res.status(404).json({ error: 'Produto não encontrado' });
@@ -108,10 +122,12 @@ exports.getProduct = async (req, res) => {
   }
 };
 
-// PUT - Editar produto
+// ==========================================
+// PUT - Atualizar Produto
+// ==========================================
 exports.updateProduct = async (req, res) => {
   try {
-    const { name, description, base_price, cost_price, active, featured, brand, tags } = req.body;
+    const { name, description, price, discount, category, images, promotion } = req.body;
     
     const product = await Product.findById(req.params.id);
     
@@ -122,16 +138,13 @@ exports.updateProduct = async (req, res) => {
     // Atualizar campos
     if (name) product.name = name;
     if (description !== undefined) product.description = description;
-    if (base_price) product.base_price = base_price;
-    if (cost_price) product.cost_price = cost_price;
-    if (typeof active === 'boolean') product.active = active;
-    if (typeof featured === 'boolean') product.featured = featured;
-    if (brand) product.brand = brand;
-    if (tags) product.tags = tags;
+    if (price) product.price = price;
+    if (discount !== undefined) product.discount = discount;
+    if (category) product.category = category;
+    if (images) product.images = images;
+    if (promotion) product.promotion = promotion;
     
-    product.updated_by = req.user?.email || 'admin';
-    product.updated_at = new Date();
-    
+    product.updatedAt = new Date();
     await product.save();
     
     res.json({ success: true, product });
@@ -141,7 +154,9 @@ exports.updateProduct = async (req, res) => {
   }
 };
 
-// DELETE - Deletar produto
+// ==========================================
+// DELETE - Deletar Produto
+// ==========================================
 exports.deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
@@ -158,36 +173,29 @@ exports.deleteProduct = async (req, res) => {
 };
 
 // ============================================
-// VARIAÇÕES (TONS/CORES)
+// VARIAÇÕES (TONS/CORES/TAMANHOS)
 // ============================================
 
-// POST - Adicionar variação
+// POST - Adicionar Variação
 exports.addVariant = async (req, res) => {
   try {
-    const { name, color_hex, color_name, sku_variant, stock, price } = req.body;
+    const { name, sku, price, discount, color, colorHex, size, stock } = req.body;
     
     const product = await Product.findById(req.params.id);
     if (!product) {
       return res.status(404).json({ error: 'Produto não encontrado' });
     }
     
-    // Validar SKU variant único
-    const existingVariant = await Product.findOne({
-      'variants.sku_variant': sku_variant
-    });
-    if (existingVariant) {
-      return res.status(400).json({ error: 'SKU da variação já existe' });
-    }
-    
     const variant = {
-      variant_id: `var-${Date.now()}`,
+      id: `var-${Date.now()}`,
       name: name || 'Variação',
-      color_hex: color_hex || '#000000',
-      color_name: color_name || 'Padrão',
-      sku_variant,
-      stock: stock || 0,
-      price: price || product.base_price,
-      active: true
+      sku: sku || `${product.sku}-var-${Date.now()}`,
+      price: price || product.price,
+      discount: discount !== undefined ? discount : product.discount,
+      color: color || '',
+      colorHex: colorHex || '#000000',
+      size: size || '',
+      stock: stock || 0
     };
     
     product.variants.push(variant);
@@ -195,9 +203,9 @@ exports.addVariant = async (req, res) => {
     
     res.status(201).json({
       success: true,
-      variant_id: variant.variant_id,
-      variant,
-      message: 'Variação adicionada com sucesso'
+      variant_id: variant.id,
+      message: 'Variação adicionada com sucesso',
+      variant
     });
   } catch (error) {
     console.error('Erro ao adicionar variação:', error);
@@ -205,27 +213,31 @@ exports.addVariant = async (req, res) => {
   }
 };
 
-// PUT - Editar variação
+// PUT - Atualizar Variação (COMPLETA)
 exports.updateVariant = async (req, res) => {
   try {
     const { id, variantId } = req.params;
-    const { name, color_hex, color_name, stock, price } = req.body;
+    const { name, sku, price, discount, color, colorHex, size, stock } = req.body;
     
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ error: 'Produto não encontrado' });
     }
     
-    const variant = product.variants.find(v => v.variant_id === variantId);
+    const variant = product.variants.find(v => v.id === variantId);
     if (!variant) {
       return res.status(404).json({ error: 'Variação não encontrada' });
     }
     
+    // Atualizar campos
     if (name) variant.name = name;
-    if (color_hex) variant.color_hex = color_hex;
-    if (color_name) variant.color_name = color_name;
+    if (sku) variant.sku = sku;
+    if (price !== undefined) variant.price = price;
+    if (discount !== undefined) variant.discount = discount;
+    if (color) variant.color = color;
+    if (colorHex) variant.colorHex = colorHex;
+    if (size) variant.size = size;
     if (stock !== undefined) variant.stock = stock;
-    if (price) variant.price = price;
     
     await product.save();
     
@@ -236,7 +248,7 @@ exports.updateVariant = async (req, res) => {
   }
 };
 
-// DELETE - Deletar variação
+// DELETE - Deletar Variação
 exports.deleteVariant = async (req, res) => {
   try {
     const { id, variantId } = req.params;
@@ -247,7 +259,7 @@ exports.deleteVariant = async (req, res) => {
     }
     
     const initialLength = product.variants.length;
-    product.variants = product.variants.filter(v => v.variant_id !== variantId);
+    product.variants = product.variants.filter(v => v.id !== variantId);
     
     if (product.variants.length === initialLength) {
       return res.status(404).json({ error: 'Variação não encontrada' });
@@ -262,7 +274,7 @@ exports.deleteVariant = async (req, res) => {
   }
 };
 
-// PUT - Ajustar estoque de uma variação
+// PUT - Atualizar Estoque de Variação
 exports.updateVariantStock = async (req, res) => {
   try {
     const { id, variantId } = req.params;
@@ -277,7 +289,7 @@ exports.updateVariantStock = async (req, res) => {
       return res.status(404).json({ error: 'Produto não encontrado' });
     }
     
-    const variant = product.variants.find(v => v.variant_id === variantId);
+    const variant = product.variants.find(v => v.id === variantId);
     if (!variant) {
       return res.status(404).json({ error: 'Variação não encontrada' });
     }
@@ -299,6 +311,74 @@ exports.updateVariantStock = async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao ajustar estoque:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ==========================================
+// ✅ PUT - Atualizar Preço + Desconto de Variação (NOVO)
+// ==========================================
+exports.updateVariantPrice = async (req, res) => {
+  try {
+    const { id, variantId } = req.params;
+    const { price, discount } = req.body;
+    
+    if (price === undefined && discount === undefined) {
+      return res.status(400).json({ error: 'price ou discount é obrigatório' });
+    }
+    
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ error: 'Produto não encontrado' });
+    }
+    
+    const variant = product.variants.find(v => v.id === variantId);
+    if (!variant) {
+      return res.status(404).json({ error: 'Variação não encontrada' });
+    }
+    
+    if (price !== undefined) variant.price = price;
+    if (discount !== undefined) variant.discount = discount;
+    
+    await product.save();
+    
+    res.json({ success: true, variant });
+  } catch (error) {
+    console.error('Erro ao atualizar preço da variação:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ==========================================
+// ✅ POST - Upload de Imagem (NOVO)
+// ==========================================
+exports.uploadImage = async (req, res) => {
+  try {
+    const { base64, filename } = req.body;
+    
+    if (!base64 || !filename) {
+      return res.status(400).json({ error: 'base64 e filename são obrigatórios' });
+    }
+    
+    // Importar put do Vercel Blob
+    const { put } = await import('@vercel/blob');
+    
+    // Converter base64 pra buffer
+    const buffer = Buffer.from(base64, 'base64');
+    
+    // Upload pro Vercel Blob
+    const blob = await put(filename, buffer, {
+      access: 'public',
+      token: process.env.BLOB_READ_WRITE_TOKEN
+    });
+    
+    res.json({
+      success: true,
+      url: blob.url,
+      filename: blob.filename
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };

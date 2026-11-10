@@ -16,4 +16,9 @@ router.put('/:id/variants/:variantId', authenticate, productController.updateVar
 router.delete('/:id/variants/:variantId', authenticate, productController.deleteVariant);
 router.put('/:id/variants/:variantId/stock', authenticate, productController.updateVariantStock);
 
+// ✅ NOVOS ENDPOINTS
+// ✅ NOVOS ENDPOINTS
+router.put('/:id/variants/:variantId/price', authenticate, productController.updateVariantPrice);
+router.post('/upload-image', authenticate, productController.uploadImage);
+
 module.exports = router;
