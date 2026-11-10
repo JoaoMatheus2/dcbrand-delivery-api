@@ -4,6 +4,8 @@ require('dotenv').config();
 const connectDB = require('./config/database');
 const authRoutes = require('./routes/auth');
 const authenticate = require('./middleware/authenticate');
+// ✨ NOVO - Jobs agendados
+require('./jobs/scheduledTasks');
 
 const app = express();
 
@@ -22,6 +24,12 @@ connectDB();
 
 app.use('/api/admin/auth', authRoutes);
 app.use('/api/admin/products', authenticate, require('./routes/products'));
+// Rotas de Pedidos
+const orderRoutes = require('./routes/orders');
+app.post('/api/admin/orders/webhook', (req, res, next) => {
+  require('./webhook/mercadoPagoWebhook')(req, res);
+}); // SEM AUTH para webhook
+app.use('/api/admin/orders', authenticate, orderRoutes); // COM AUTH
 
 // ============================================
 // HEALTH CHECK
