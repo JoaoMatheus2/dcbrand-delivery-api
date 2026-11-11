@@ -63,7 +63,7 @@ exports.listProducts = async (req, res) => {
 // ==========================================
 exports.createProduct = async (req, res) => {
   try {
-    const { sku, name, category, description, price, discount, images, variants, promotion } = req.body;
+    const { sku, name, category, description, price, discount, images, variants, promotion, brand, tags, cost_price, featured, active } = req.body;
     
     // Validações
     if (!sku || !name || price === undefined) {
@@ -87,7 +87,12 @@ exports.createProduct = async (req, res) => {
       discount: discount || 0,
       images: images || [],
       variants: variants || [],
-      promotion: promotion || { isActive: false }
+      promotion: promotion || { isActive: false },
+      brand: brand || '',
+      tags: tags || [],
+      cost_price: cost_price || 0,
+      featured: featured || false,
+      active: active !== undefined ? active : true
     });
     
     await product.save();
@@ -127,7 +132,7 @@ exports.getProduct = async (req, res) => {
 // ==========================================
 exports.updateProduct = async (req, res) => {
   try {
-    const { name, description, price, discount, category, images, promotion } = req.body;
+    const { name, description, price, discount, category, images, promotion, brand, tags, cost_price, featured, active } = req.body;
     
     const product = await Product.findById(req.params.id);
     
@@ -135,13 +140,20 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ error: 'Produto não encontrado' });
     }
     
-    // Atualizar campos
+    // Atualizar campos básicos
     if (name) product.name = name;
     if (description !== undefined) product.description = description;
     if (price) product.price = price;
     if (discount !== undefined) product.discount = discount;
     if (category) product.category = category;
-    
+
+    // ✅ Atualizar novos campos
+    if (brand !== undefined) product.brand = brand;
+    if (tags !== undefined) product.tags = tags;
+    if (cost_price !== undefined) product.cost_price = cost_price;
+    if (featured !== undefined) product.featured = featured;
+    if (active !== undefined) product.active = active;
+        
     // ✅ Validar images - deve ser array de objetos
     if (images !== undefined) {
       if (Array.isArray(images)) {
