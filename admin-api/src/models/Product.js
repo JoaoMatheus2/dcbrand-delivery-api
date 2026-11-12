@@ -36,7 +36,7 @@ const productSchema = new mongoose.Schema({
 
   // ✅ VARIAÇÕES COM ESTOQUE INDIVIDUAL
   variants: [{
-    id: { type: String, required: true },
+    id: { type: String, default: () => `var-${Date.now()}` },
     name: String,
     sku: String,
     price: Number,
