@@ -97,24 +97,23 @@ app.get('/api/public/photos', async (req, res) => {
     
     const Product = require('./models/Product');
     
-    // Procura um produto que tenha essa imagem
-    const product = await Product.findOne({
-      'images.url': { $regex: key }
-    });
+    // Procura em todos os produtos
+    const products = await Product.find({});
     
-    if (!product) {
-      return res.status(404).json({ error: 'Imagem não encontrada' });
+    for (let product of products) {
+      for (let image of product.images) {
+        if (image.url.includes(key)) {
+          // Se é Vercel Blob direto, redireciona
+          if (image.url.startsWith('https://')) {
+            return res.redirect(image.url);
+          }
+          // Se é old format, retorna a URL do Vercel Blob (se existir)
+          return res.status(404).json({ error: 'Imagem antiga - faça reupload' });
+        }
+      }
     }
     
-    // Encontra a imagem correta
-    const image = product.images.find(img => img.url.includes(key));
-    
-    if (!image) {
-      return res.status(404).json({ error: 'Imagem não encontrada' });
-    }
-    
-    // Faz redirect pra URL do Vercel Blob
-    res.redirect(image.url);
+    res.status(404).json({ error: 'Imagem não encontrada' });
   } catch (error) {
     console.error('Erro ao buscar foto:', error);
     res.status(500).json({ error: error.message });
