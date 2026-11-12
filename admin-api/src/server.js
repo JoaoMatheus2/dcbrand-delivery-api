@@ -84,6 +84,44 @@ app.get('/api/products', async (req, res) => {
 });
 
 // ============================================
+// FOTOS PÚBLICAS (redirect pra Vercel Blob)
+// ============================================
+
+app.get('/api/public/photos', async (req, res) => {
+  try {
+    const { key } = req.query;
+    
+    if (!key) {
+      return res.status(400).json({ error: 'key é obrigatório' });
+    }
+    
+    const Product = require('./models/Product');
+    
+    // Procura um produto que tenha essa imagem
+    const product = await Product.findOne({
+      'images.url': { $regex: key }
+    });
+    
+    if (!product) {
+      return res.status(404).json({ error: 'Imagem não encontrada' });
+    }
+    
+    // Encontra a imagem correta
+    const image = product.images.find(img => img.url.includes(key));
+    
+    if (!image) {
+      return res.status(404).json({ error: 'Imagem não encontrada' });
+    }
+    
+    // Faz redirect pra URL do Vercel Blob
+    res.redirect(image.url);
+  } catch (error) {
+    console.error('Erro ao buscar foto:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
 // 404 HANDLER
 // ============================================
 
