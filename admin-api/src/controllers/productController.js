@@ -132,8 +132,7 @@ exports.getProduct = async (req, res) => {
 // ==========================================
 exports.updateProduct = async (req, res) => {
   try {
-    const { name, description, price, discount, category, images, promotion, brand, tags, cost_price, featured, active } = req.body;
-    
+const { name, description, price, base_price, discount, category, images, promotion, brand, tags, cost_price, featured, active, total_stock } = req.body;    
     const product = await Product.findById(req.params.id);
     
     if (!product) {
@@ -153,7 +152,9 @@ exports.updateProduct = async (req, res) => {
     if (cost_price !== undefined) product.cost_price = cost_price;
     if (featured !== undefined) product.featured = featured;
     if (active !== undefined) product.active = active;
-        
+    if (base_price !== undefined) product.base_price = base_price;
+    if (total_stock !== undefined) product.total_stock = total_stock;    
+
     // ✅ Validar images - deve ser array de objetos
     if (images !== undefined) {
       if (Array.isArray(images)) {
