@@ -217,7 +217,7 @@ exports.addVariant = async (req, res) => {
     }
     
     const variant = {
-      id: `var-${Date.now()}`,
+      id: `var-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: name || 'Variação',
       sku: sku || `${product.sku}-var-${Date.now()}`,
       price: price || product.price,
