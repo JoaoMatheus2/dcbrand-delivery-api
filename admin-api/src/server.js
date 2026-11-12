@@ -18,10 +18,10 @@ app.use((req, res, next) => {
 });
 
 // Middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || '*'
-}));
-app.use(express.json());
+// app.use(cors({
+//   origin: process.env.CORS_ORIGIN?.split(',') || '*'
+// }));
+// app.use(express.json());
 
 // Conectar banco
 connectDB();
