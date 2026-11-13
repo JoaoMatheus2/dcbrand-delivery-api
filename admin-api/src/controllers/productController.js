@@ -401,7 +401,7 @@ exports.uploadImage = async (req, res) => {
     const blob = await put(filename, buffer, {
       access: 'public',
       token: process.env.BLOB_READ_WRITE_TOKEN,
-      allowOverwrite: true
+      addRandomSuffix: true
     });
     
     // Se tem productId, adiciona a imagem ao produto
