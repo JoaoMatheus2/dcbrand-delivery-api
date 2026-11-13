@@ -392,7 +392,7 @@ exports.uploadImage = async (req, res) => {
     }
     
     // Importar put do Vercel Blob
-    const { put } = await import('@vercel/blob');
+    const { put } = require('@vercel/blob');
     
     // Converter base64 pra buffer
     const buffer = Buffer.from(base64, 'base64');
@@ -400,7 +400,8 @@ exports.uploadImage = async (req, res) => {
     // Upload pro Vercel Blob
     const blob = await put(filename, buffer, {
       access: 'public',
-      token: process.env.BLOB_READ_WRITE_TOKEN
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+      allowOverwrite: true
     });
     
     // Se tem productId, adiciona a imagem ao produto
