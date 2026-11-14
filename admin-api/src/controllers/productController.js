@@ -395,8 +395,9 @@ exports.uploadImage = async (req, res) => {
     const { put } = require('@vercel/blob');
     
     // Converter base64 pra buffer
-    const buffer = Buffer.from(base64, 'base64');
-    
+    const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+    const buffer = Buffer.from(base64Data, 'base64');
+
     // Upload pro Vercel Blob
     const blob = await put(filename, buffer, {
       access: 'public',
