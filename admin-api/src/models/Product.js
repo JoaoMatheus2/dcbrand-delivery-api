@@ -14,7 +14,7 @@ const productSchema = new mongoose.Schema({
   active: { type: Boolean, default: true },
 
   // ✅ PREÇO
-  price: { type: Number, required: true },
+  price: { type: Number },
   discount: { type: Number, default: 0 },
   finalPrice: { type: Number },
 
