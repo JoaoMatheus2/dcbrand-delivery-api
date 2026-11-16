@@ -36,7 +36,7 @@ exports.listProducts = async (req, res) => {
     
     const products = await Product
       .find(filter)
-      .select('+total_stock')  // ← aqui
+      .lean()  // ← aqui
       .skip(skip)
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
