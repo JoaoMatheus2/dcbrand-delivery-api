@@ -16,6 +16,7 @@ const productSchema = new mongoose.Schema({
   // ✅ PREÇO
   price: { type: Number },
   discount: { type: Number, default: 0 },
+  total_stock: { type: Number, default: 0 },  // ← ADICIONA AQUI
   finalPrice: { type: Number },
 
   // ✅ PROMOÇÃO
@@ -62,7 +63,10 @@ productSchema.pre('save', function(next) {
     this.finalPrice = this.price;
   }
 
+  // ✅ CALCULA total_stock automaticamente
   if (this.variants && this.variants.length > 0) {
+    this.total_stock = this.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+    
     this.variants.forEach(variant => {
       const variantPrice = variant.price || this.price;
       const variantDiscount = variant.discount || this.discount;
