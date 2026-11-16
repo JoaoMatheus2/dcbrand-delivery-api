@@ -12,6 +12,7 @@ router.post('/', authenticate, productController.createProduct);
 router.get('/:id', authenticate, productController.getProduct);
 router.put('/:id', authenticate, productController.updateProduct);
 router.delete('/:id', authenticate, productController.deleteProduct);
+router.put('/:id/stock', authenticate, productController.updateProductStock);
 
 // Variações
 router.post('/:id/variants', authenticate, productController.addVariant);

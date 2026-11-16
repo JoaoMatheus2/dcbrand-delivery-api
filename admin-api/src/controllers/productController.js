@@ -484,3 +484,40 @@ exports.addProductImage = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+// PUT - Atualizar Estoque do Produto (sem variantes)
+exports.updateProductStock = async (req, res) => {
+  try {
+    const { total_stock } = req.body;
+    const productId = req.params.id;
+    
+    if (total_stock === undefined) {
+      return res.status(400).json({ error: 'total_stock é obrigatório' });
+    }
+    
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Produto não encontrado' });
+    }
+    
+    const previousStock = product.total_stock || 0;
+    product.total_stock = total_stock;
+    
+    console.log('✅ Stock do produto atualizado:', { previousStock, newStock: total_stock });
+    
+    await product.save();
+    
+    res.json({
+      success: true,
+      product,
+      movement: {
+        previous_stock: previousStock,
+        new_stock: total_stock,
+        quantity_change: total_stock - previousStock
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao ajustar estoque:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
