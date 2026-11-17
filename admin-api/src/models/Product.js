@@ -62,26 +62,32 @@ const productSchema = new mongoose.Schema({
 
 // ✅ MIDDLEWARE: Calcular preços finais
 productSchema.pre('save', function(next) {
-  // ✅ SE TEM PROMOÇÃO ATIVA: finalPrice = price (desconto JÁ aplicado)
+  // ✅ VALIDA E CORRIGE PREÇOS
+  // Se tem promoção ativa: price deve ser base_price COM desconto aplicado
   if (this.promotion && this.promotion.isActive) {
+    // Se price não tá correto, recalcula
+    const expectedPrice = this.base_price * (1 - this.promotion.discountPercentage / 100);
+    this.price = Math.round(expectedPrice * 100) / 100; // Evita erro de float
     this.finalPrice = this.price;
   } else {
-    // SEM promoção: aplica desconto manual se houver
-    if (this.price && this.discount) {
+    // SEM promoção: price deve ser = base_price
+    if (!this.price) {
+      this.price = this.base_price;
+    }
+    // Aplica desconto manual se houver
+    if (this.discount) {
       this.finalPrice = this.price - (this.price * this.discount / 100);
-    } else if (this.price) {
+    } else {
       this.finalPrice = this.price;
     }
   }
 
-  // ✅ CALCULA total_stock automaticamente
+  // ✅ CALCULA total_stock
   if (this.variants && this.variants.length > 0) {
     this.total_stock = this.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
-    
     this.variants.forEach(variant => {
       const variantPrice = variant.price || this.price;
       const variantDiscount = variant.discount || this.discount;
-
       variant.finalPrice = variantPrice - (variantPrice * variantDiscount / 100);
       variant.isOutOfStock = variant.stock <= 0;
     });
