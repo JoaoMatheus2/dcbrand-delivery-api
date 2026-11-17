@@ -62,10 +62,16 @@ const productSchema = new mongoose.Schema({
 
 // ✅ MIDDLEWARE: Calcular preços finais
 productSchema.pre('save', function(next) {
-  if (this.price && this.discount) {
-    this.finalPrice = this.price - (this.price * this.discount / 100);
-  } else if (this.price) {
+  // ✅ SE TEM PROMOÇÃO ATIVA: finalPrice = price (desconto JÁ aplicado)
+  if (this.promotion && this.promotion.isActive) {
     this.finalPrice = this.price;
+  } else {
+    // SEM promoção: aplica desconto manual se houver
+    if (this.price && this.discount) {
+      this.finalPrice = this.price - (this.price * this.discount / 100);
+    } else if (this.price) {
+      this.finalPrice = this.price;
+    }
   }
 
   // ✅ CALCULA total_stock automaticamente
