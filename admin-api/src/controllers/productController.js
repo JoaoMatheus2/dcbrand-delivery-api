@@ -64,49 +64,36 @@ exports.listProducts = async (req, res) => {
 // ==========================================
 exports.createProduct = async (req, res) => {
   try {
-    const { sku, name, category, description, price, discount, images, variants, promotion, brand, tags, cost_price, featured, active } = req.body;
-    
-    // Validações
-    if (!sku || !name || price === undefined) {
-      return res.status(400).json({ 
-        error: 'SKU, nome e preço são obrigatórios' 
+    let productData = req.body;
+
+    // ✅ CONVERTE images strings em objetos
+    if (productData.images && Array.isArray(productData.images)) {
+      productData.images = productData.images.map((img, index) => {
+        // Se é string, converte em objeto
+        if (typeof img === 'string') {
+          return {
+            url: img,
+            alt: productData.name || 'Imagem do produto',
+            isMain: index === 0  // Primeira imagem é main
+          };
+        }
+        // Se já é objeto, retorna como está
+        return img;
       });
     }
-    
-    // Verificar SKU único
-    const existing = await Product.findOne({ sku });
-    if (existing) {
-      return res.status(400).json({ error: 'SKU já existe' });
-    }
-    
-    const product = new Product({
-      sku,
-      name,
-      category: category || '',
-      description: description || '',
-      price,
-      discount: discount || 0,
-      images: images || [],
-      variants: variants || [],
-      promotion: promotion || { isActive: false },
-      brand: brand || '',
-      tags: tags || [],
-      cost_price: cost_price || 0,
-      featured: featured || false,
-      active: active !== undefined ? active : true
-    });
-    
+
+    const product = new Product(productData);
     await product.save();
-    
+
     res.status(201).json({
       success: true,
-      product_id: product._id,
-      message: 'Produto criado com sucesso',
       product
     });
   } catch (error) {
-    console.error('Erro ao criar produto:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
   }
 };
 
