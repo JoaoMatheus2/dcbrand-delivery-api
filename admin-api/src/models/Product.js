@@ -54,7 +54,7 @@ const productSchema = new mongoose.Schema({
     alt: String,
     isMain: Boolean
   }]
-}]
+}],
 
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
