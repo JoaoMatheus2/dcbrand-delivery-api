@@ -369,6 +369,64 @@ exports.updateVariantStock = async (req, res) => {
 };
 
 // ==========================================
+// POST - Upload de Imagem pra Variação (NOVO)
+// ==========================================
+exports.uploadVariantImage = async (req, res) => {
+  try {
+    const { id, variantId } = req.params;
+    const { base64, filename, alt } = req.body;
+    
+    if (!base64 || !filename) {
+      return res.status(400).json({ error: 'base64 e filename são obrigatórios' });
+    }
+    
+    const { put } = require('@vercel/blob');
+    
+    const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    const blob = await put(filename, buffer, {
+      access: 'public',
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+      addRandomSuffix: true
+    });
+    
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ error: 'Produto não encontrado' });
+    }
+    
+    const variant = product.variants.find(v => v.id === variantId);
+    if (!variant) {
+      return res.status(404).json({ error: 'Variação não encontrada' });
+    }
+    
+    const imageObject = {
+      url: blob.url,
+      alt: alt || variant.name,
+      isMain: !variant.images || variant.images.length === 0
+    };
+    
+    if (!variant.images) {
+      variant.images = [];
+    }
+    
+    variant.images.push(imageObject);
+    await product.save();
+    
+    res.json({
+      success: true,
+      image: imageObject,
+      variant_id: variantId,
+      message: 'Imagem enviada e adicionada à variação'
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ==========================================
 // ✅ PUT - Atualizar Preço + Desconto de Variação (NOVO)
 // ==========================================
 exports.updateVariantPrice = async (req, res) => {

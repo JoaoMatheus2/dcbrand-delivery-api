@@ -20,6 +20,7 @@ router.put('/:id/variants/:variantId', authenticate, productController.updateVar
 router.delete('/:id/variants/:variantId', authenticate, productController.deleteVariant);
 router.put('/:id/variants/:variantId/stock', authenticate, productController.updateVariantStock);
 router.put('/:id/variants/:variantId/price', authenticate, productController.updateVariantPrice);
+router.post('/:id/variants/:variantId/images', authenticate, productController.uploadVariantImage);
 
 // ✅ IMAGENS
 router.put('/:id/images', authenticate, productController.addProductImage);
