@@ -37,19 +37,24 @@ const productSchema = new mongoose.Schema({
 
   // ✅ VARIAÇÕES COM ESTOQUE INDIVIDUAL
   variants: [{
-    id: { type: String, default: () => `var-${Date.now()}` },
-    name: String,
-    sku: String,
-    price: Number,
-    discount: Number,
-    finalPrice: Number,
-    color: String,
-    colorHex: String,
-    size: String,
-    stock: { type: Number, default: 0 },
-    lowStockThreshold: { type: Number, default: 5 },
-    isOutOfStock: Boolean
-  }],
+  id: { type: String, default: () => `var-${Date.now()}` },
+  name: String,
+  sku: String,
+  price: Number,
+  discount: Number,
+  finalPrice: Number,
+  color: String,
+  colorHex: String,
+  size: String,
+  stock: { type: Number, default: 0 },
+  lowStockThreshold: { type: Number, default: 5 },
+  isOutOfStock: Boolean,
+  images: [{              // ← ADICIONA ISSO
+    url: String,
+    alt: String,
+    isMain: Boolean
+  }]
+}]
 
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
