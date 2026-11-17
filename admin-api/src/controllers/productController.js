@@ -133,7 +133,7 @@ exports.getProduct = async (req, res) => {
 // ==========================================
 exports.updateProduct = async (req, res) => {
   try {
-const { name, description, price, base_price, discount, category, images, promotion, brand, tags, cost_price, featured, active, total_stock } = req.body;    
+    const { name, description, price, base_price, discount, category, images, promotion, brand, tags, cost_price, featured, active, total_stock, variants } = req.body;    
     const product = await Product.findById(req.params.id);
     
     if (!product) {
@@ -159,7 +159,6 @@ const { name, description, price, base_price, discount, category, images, promot
     // ✅ Validar images - deve ser array de objetos
     if (images !== undefined) {
       if (Array.isArray(images)) {
-        // Validar que cada item tem url
         const validImages = images.map(img => ({
           url: img.url || img,
           alt: img.alt || product.name,
@@ -167,11 +166,33 @@ const { name, description, price, base_price, discount, category, images, promot
         }));
         product.images = validImages;
       } else if (typeof images === 'string') {
-        // Se vier string, retornar erro
         return res.status(400).json({ 
           error: 'Campo images deve ser um array de objetos com estrutura: [{url, alt, isMain}]' 
         });
       }
+    }
+
+    // ✅ ADICIONA ISSO: Atualizar variants com images
+    if (variants !== undefined && Array.isArray(variants)) {
+      variants.forEach(updatedVariant => {
+        const existingVariant = product.variants.find(v => v.id === updatedVariant.id);
+        if (existingVariant) {
+          // Atualiza todos os campos da variante
+          if (updatedVariant.name) existingVariant.name = updatedVariant.name;
+          if (updatedVariant.sku) existingVariant.sku = updatedVariant.sku;
+          if (updatedVariant.price !== undefined) existingVariant.price = updatedVariant.price;
+          if (updatedVariant.stock !== undefined) existingVariant.stock = updatedVariant.stock;
+          if (updatedVariant.discount !== undefined) existingVariant.discount = updatedVariant.discount;
+          if (updatedVariant.color !== undefined) existingVariant.color = updatedVariant.color;
+          if (updatedVariant.colorHex !== undefined) existingVariant.colorHex = updatedVariant.colorHex;
+          if (updatedVariant.size !== undefined) existingVariant.size = updatedVariant.size;
+          
+          // ✅ Atualiza images da variante
+          if (updatedVariant.images !== undefined) {
+            existingVariant.images = updatedVariant.images;
+          }
+        }
+      });
     }
     
     if (promotion) product.promotion = promotion;
