@@ -13,10 +13,11 @@ const productSchema = new mongoose.Schema({
   featured: { type: Boolean, default: false },
   active: { type: Boolean, default: true },
 
-  // ✅ PREÇO
+  // ✅ PREÇO - ADICIONADO base_price
+  base_price: { type: Number },  // ← NOVO CAMPO!
   price: { type: Number },
   discount: { type: Number, default: 0 },
-  total_stock: { type: Number, default: 0 },  // ← ADICIONA AQUI
+  total_stock: { type: Number, default: 0 },
   finalPrice: { type: Number },
 
   // ✅ PROMOÇÃO
@@ -35,7 +36,7 @@ const productSchema = new mongoose.Schema({
     isMain: Boolean
   }],
 
-  // ✅ VARIAÇÕES COM ESTOQUE INDIVIDUAL
+  // ✅ VARIAÇÕES
   variants: [{
   id: { type: String, default: () => `var-${Date.now()}` },
   name: String,
@@ -49,7 +50,7 @@ const productSchema = new mongoose.Schema({
   stock: { type: Number, default: 0 },
   lowStockThreshold: { type: Number, default: 5 },
   isOutOfStock: Boolean,
-  images: [{              // ← ADICIONA ISSO
+  images: [{
     url: String,
     alt: String,
     isMain: Boolean
@@ -63,18 +64,14 @@ const productSchema = new mongoose.Schema({
 // ✅ MIDDLEWARE: Calcular preços finais
 productSchema.pre('save', function(next) {
   // ✅ VALIDA E CORRIGE PREÇOS
-  // Se tem promoção ativa: price deve ser base_price COM desconto aplicado
   if (this.promotion && this.promotion.isActive) {
-    // Se price não tá correto, recalcula
     const expectedPrice = this.base_price * (1 - this.promotion.discountPercentage / 100);
-    this.price = Math.round(expectedPrice * 100) / 100; // Evita erro de float
+    this.price = Math.round(expectedPrice * 100) / 100;
     this.finalPrice = this.price;
   } else {
-    // SEM promoção: price deve ser = base_price
     if (!this.price) {
       this.price = this.base_price;
     }
-    // Aplica desconto manual se houver
     if (this.discount) {
       this.finalPrice = this.price - (this.price * this.discount / 100);
     } else {
