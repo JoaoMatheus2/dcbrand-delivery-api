@@ -50,6 +50,13 @@ const productSchema = new mongoose.Schema({
   stock: { type: Number, default: 0 },
   lowStockThreshold: { type: Number, default: 5 },
   isOutOfStock: Boolean,
+    promotion: {
+    isActive: Boolean,
+    name: String,
+    discountPercentage: Number,
+    startDate: Date,
+    endDate: Date
+  },
   images: [{
     url: String,
     alt: String,
@@ -80,15 +87,28 @@ productSchema.pre('save', function(next) {
   }
 
   // ✅ CALCULA total_stock
-  if (this.variants && this.variants.length > 0) {
-    this.total_stock = this.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
-    this.variants.forEach(variant => {
-      const variantPrice = variant.price || this.price;
-      const variantDiscount = variant.discount || this.discount;
+  this.variants.forEach(variant => {
+  const variantPrice = variant.price || this.price;
+  
+  // ✅ Prioridade: promoção da VARIANTE > promoção do PRODUTO > desconto manual
+  if (variant.promotion && variant.promotion.isActive) {
+    // Usa promoção da variante
+    variant.finalPrice = Math.round(variantPrice * (1 - variant.promotion.discountPercentage / 100) * 100) / 100;
+  } else if (this.promotion && this.promotion.isActive) {
+    // Herda promoção do produto
+    variant.finalPrice = Math.round(variantPrice * (1 - this.promotion.discountPercentage / 100) * 100) / 100;
+  } else {
+    // Aplica desconto manual se houver
+    const variantDiscount = variant.discount || this.discount;
+    if (variantDiscount) {
       variant.finalPrice = variantPrice - (variantPrice * variantDiscount / 100);
-      variant.isOutOfStock = variant.stock <= 0;
-    });
+    } else {
+      variant.finalPrice = variantPrice;
+    }
   }
+  
+  variant.isOutOfStock = variant.stock <= 0;
+});
 
   this.updatedAt = new Date();
   next();
